@@ -13,15 +13,15 @@ import jakarta.validation.constraints.Size;
 public record MonitorRequest(
 
         @NotBlank(message = "must not be blank")
-        @Size(max = 100, message = "must be at most 100 characters")
+        @Size(max = Monitor.MAX_NAME_LENGTH, message = "must be at most {max} characters")
         String name,
 
         @NotBlank(message = "must not be blank")
-        @Size(max = 2000, message = "must be at most 2000 characters")
-        @Pattern(regexp = "^https?://.+", message = "must start with http:// or https://")
+        @Size(max = Monitor.MAX_URL_LENGTH, message = "must be at most {max} characters")
+        @Pattern(regexp = "^https?://\\S+$", message = "must start with http:// or https:// and contain no spaces")
         String url,
 
-        @Min(value = Monitor.MIN_INTERVAL_SECONDS, message = "must be at least 10 seconds")
+        @Min(value = Monitor.MIN_INTERVAL_SECONDS, message = "must be at least {value} seconds")
         @Max(value = 86400, message = "must be at most 86400 seconds (one day)")
         int intervalSeconds) {
 }

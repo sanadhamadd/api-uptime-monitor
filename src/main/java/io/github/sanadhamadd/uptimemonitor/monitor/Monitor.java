@@ -1,5 +1,6 @@
 package io.github.sanadhamadd.uptimemonitor.monitor;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,11 +19,15 @@ import jakarta.persistence.Table;
 public class Monitor {
 
     public static final int MIN_INTERVAL_SECONDS = 10;
+    public static final int MAX_NAME_LENGTH = 100;
+    public static final int MAX_URL_LENGTH = 2000;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(nullable = false, length = MAX_NAME_LENGTH)
     private String name;
+    @Column(nullable = false, length = MAX_URL_LENGTH)
     private String url;
     private int intervalSeconds;
 

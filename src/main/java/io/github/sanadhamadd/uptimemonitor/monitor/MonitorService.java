@@ -1,5 +1,6 @@
 package io.github.sanadhamadd.uptimemonitor.monitor;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,7 +16,7 @@ public class MonitorService {
     }
 
     public List<Monitor> findAll() {
-        return monitorRepository.findAll();
+        return monitorRepository.findAll(Sort.by("id"));
     }
 
     public Monitor findById(Long id) {
