@@ -106,6 +106,43 @@ class MonitorControllerTests {
     }
 
     @Test
+    void createAcceptsAUrlOfTheMaximumLength() throws Exception {
+        String longUrl = "https://example.com/" + "a".repeat(Monitor.MAX_URL_LENGTH - 20);
+        String body = """
+                {"name": "Long", "url": "%s", "intervalSeconds": 60}
+                """.formatted(longUrl);
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.url").value(longUrl));
+    }
+
+    @Test
+    void createReturns400ForAUrlContainingASpace() throws Exception {
+        String body = """
+                {"name": "Space", "url": "https://exa mple.com", "intervalSeconds": 60}
+                """;
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.url").exists());
+    }
+
+    @Test
+    void malformedJsonReturns400InTheSameErrorFormat() throws Exception {
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{oops"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").exists());
+    }
+
+    @Test
     void updateReplacesTheMonitor() throws Exception {
         Monitor saved = monitorRepository.save(new Monitor("Old name", "https://old.example", 30));
 
