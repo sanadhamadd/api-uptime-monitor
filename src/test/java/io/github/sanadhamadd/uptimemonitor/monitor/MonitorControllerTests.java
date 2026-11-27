@@ -178,4 +178,54 @@ class MonitorControllerTests {
         mockMvc.perform(delete("/api/monitors/999"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void createStoresTheExpectedKeywordWhenOneIsGiven() throws Exception {
+        String body = """
+                {"name": "Example", "url": "https://example.com", "intervalSeconds": 60, "expectedKeyword": "Welcome"}
+                """;
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.expectedKeyword").value("Welcome"));
+    }
+
+    @Test
+    void createLeavesTheExpectedKeywordEmptyWhenNoneIsGiven() throws Exception {
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.expectedKeyword").isEmpty());
+    }
+
+    @Test
+    void createReturns400ForAKeywordThatIsTooLong() throws Exception {
+        String body = """
+                {"name": "Example", "url": "https://example.com", "intervalSeconds": 60, "expectedKeyword": "%s"}
+                """.formatted("a".repeat(Monitor.MAX_KEYWORD_LENGTH + 1));
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.expectedKeyword").exists());
+    }
+
+    @Test
+    void createReturns400ForAUrlThatCanNeverBeCalled() throws Exception {
+        String body = """
+                {"name": "Bad port", "url": "http://localhost:99999/", "intervalSeconds": 60}
+                """;
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("The monitor URL is not a valid web address"));
+
+        assertEquals(0, monitorRepository.count());
+    }
 }
