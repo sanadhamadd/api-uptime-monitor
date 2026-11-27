@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 /**
  * The JSON body a client sends to create or replace a monitor.
  * A record is an immutable class: its fields are set once and never change.
+ * The expected keyword is optional and may be left out.
  */
 public record MonitorRequest(
 
@@ -23,5 +24,8 @@ public record MonitorRequest(
 
         @Min(value = Monitor.MIN_INTERVAL_SECONDS, message = "must be at least {value} seconds")
         @Max(value = 86400, message = "must be at most 86400 seconds (one day)")
-        int intervalSeconds) {
+        int intervalSeconds,
+
+        @Size(max = Monitor.MAX_KEYWORD_LENGTH, message = "must be at most {max} characters")
+        String expectedKeyword) {
 }

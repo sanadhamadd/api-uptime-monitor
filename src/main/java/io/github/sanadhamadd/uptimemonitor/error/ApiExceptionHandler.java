@@ -1,5 +1,6 @@
 package io.github.sanadhamadd.uptimemonitor.error;
 
+import io.github.sanadhamadd.uptimemonitor.monitor.InvalidMonitorException;
 import io.github.sanadhamadd.uptimemonitor.monitor.MonitorNotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,7 @@ import java.util.Map;
  *
  * Extending Spring's ResponseEntityExceptionHandler means every error the web
  * layer raises (malformed JSON, wrong types, unsupported methods) is returned
- * in the same JSON format. This class adds the two cases specific to this
+ * in the same JSON format. This class adds the cases specific to this
  * application.
  */
 @RestControllerAdvice
@@ -30,6 +31,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(MonitorNotFoundException.class)
     public ProblemDetail handleNotFound(MonitorNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    /** A monitor refused its values, for example a URL that cannot be called. */
+    @ExceptionHandler(InvalidMonitorException.class)
+    public ProblemDetail handleInvalidMonitor(InvalidMonitorException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
     /** Adds the reason for each invalid field to the standard 400 response. */

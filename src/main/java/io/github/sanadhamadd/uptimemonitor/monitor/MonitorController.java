@@ -48,7 +48,7 @@ public class MonitorController {
     @PostMapping
     public ResponseEntity<MonitorResponse> create(@Valid @RequestBody MonitorRequest request) {
         Monitor created = monitorService.create(
-                request.name(), request.url(), request.intervalSeconds());
+                request.name(), request.url(), request.intervalSeconds(), request.expectedKeyword());
         URI location = URI.create("/api/monitors/" + created.getId());
         return ResponseEntity.created(location).body(MonitorResponse.from(created));
     }
@@ -56,7 +56,7 @@ public class MonitorController {
     @PutMapping("/{id}")
     public MonitorResponse update(@PathVariable Long id, @Valid @RequestBody MonitorRequest request) {
         Monitor updated = monitorService.update(
-                id, request.name(), request.url(), request.intervalSeconds());
+                id, request.name(), request.url(), request.intervalSeconds(), request.expectedKeyword());
         return MonitorResponse.from(updated);
     }
 
