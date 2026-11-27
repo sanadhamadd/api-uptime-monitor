@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # The project stays on Spring Boot 3.x on purpose.
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major"]
+      # Wrapper updates rewrite mvnw.cmd with the wrong line endings.
+      - dependency-name: "org.apache.maven:apache-maven"
 
   - package-ecosystem: github-actions
     directory: /
