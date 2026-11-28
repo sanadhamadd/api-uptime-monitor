@@ -7,11 +7,20 @@
 
 package io.github.sanadhamadd.uptimemonitor.check;
 
-import org.springframework.http.ResponseEntity;
+import io.github.sanadhamadd.uptimemonitor.security.BlockedTargetException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A way of deciding whether a URL is up.
@@ -20,34 +29,44 @@ import java.net.URI;
  * and measures how long it took. What counts as "up" differs per kind of
  * check, so that decision is left to the subclasses through the abstract
  * {@link #evaluate} method.
+ *
+ * At most {@link CheckLimits#maxBodyBytes()} of the body are read; the rest is
+ * ignored, and a keyword check looks only at what was read.
  */
 public abstract class HealthCheck {
 
-    private final RestClient restClient;
+    private static final Logger log = LoggerFactory.getLogger(HealthCheck.class);
 
-    protected HealthCheck(RestClient restClient) {
+    private final RestClient restClient;
+    private final CheckLimits limits;
+
+    protected HealthCheck(RestClient restClient, CheckLimits limits) {
         this.restClient = restClient;
+        this.limits = limits;
     }
 
     /**
      * Calls the URL with an HTTP GET and returns the outcome. This method never
      * throws: a URL that cannot be reached is a result, not an error.
+     *
+     * When there is no answer, the message gives only a general reason, such
+     * as "timed out". The exact error stays in the server log, so the API does
+     * not tell a caller what is listening at an address.
      */
     public final CheckResult run(String url) {
         long startedAt = System.nanoTime();
         try {
-            ResponseEntity<String> response = restClient.get()
+            // exchange() hands over every answer, including 3xx, 4xx and 5xx,
+            // without treating them as errors: a check needs to see them all.
+            return restClient.get()
                     .uri(URI.create(url))
-                    .retrieve()
-                    // By default RestClient throws on 4xx and 5xx. A check needs to
-                    // look at those answers too, so every status is accepted here.
-                    .onStatus(status -> true, (request, clientResponse) -> { })
-                    .toEntity(String.class);
-
-            String body = response.getBody() == null ? "" : response.getBody();
-            return evaluate(response.getStatusCode().value(), body, millisSince(startedAt));
+                    .exchange((request, response) -> evaluate(
+                            response.getStatusCode().value(), readBody(response), millisSince(startedAt)));
         } catch (RestClientException | IllegalArgumentException exception) {
-            return CheckResult.noResponse(millisSince(startedAt), "No response: " + reasonOf(exception));
+            long elapsed = millisSince(startedAt);
+            String reason = reasonOf(exception, elapsed);
+            log.debug("Check of {} failed: {}", url, reason, exception);
+            return CheckResult.noResponse(elapsed, "No response: " + reason);
         }
     }
 
@@ -59,17 +78,47 @@ public abstract class HealthCheck {
         return statusCode >= 200 && statusCode < 300;
     }
 
+    /** Reads at most the body limit, in the charset the server named, or UTF-8. */
+    private String readBody(ClientHttpResponse response) throws IOException {
+        try (InputStream body = response.getBody()) {
+            byte[] bytes = body.readNBytes(limits.maxBodyBytes());
+            return new String(bytes, charsetOf(response));
+        }
+    }
+
+    private static Charset charsetOf(ClientHttpResponse response) {
+        try {
+            MediaType contentType = response.getHeaders().getContentType();
+            if (contentType != null && contentType.getCharset() != null) {
+                return contentType.getCharset();
+            }
+        } catch (IllegalArgumentException exception) {
+            // An invalid Content-Type or an unknown charset: fall back to UTF-8.
+        }
+        return StandardCharsets.UTF_8;
+    }
+
     private static long millisSince(long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000;
     }
 
-    /** Finds the original cause of a failed call, which names the real problem. */
-    private static String reasonOf(Exception exception) {
-        Throwable cause = exception;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
+    /** A short, general reason for a failed call, without exception names or addresses. */
+    private String reasonOf(Exception exception, long elapsedMillis) {
+        if (exception instanceof IllegalArgumentException) {
+            return "invalid URL";
         }
-        String name = cause.getClass().getSimpleName();
-        return cause.getMessage() == null ? name : name + ": " + cause.getMessage();
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof BlockedTargetException) {
+                return "blocked target";
+            }
+            if (cause instanceof InterruptedIOException) {
+                return "timed out";
+            }
+        }
+        if (elapsedMillis >= limits.deadline().toMillis()) {
+            // The deadline closed the connection, which shows up as a socket error.
+            return "timed out";
+        }
+        return "connection failed";
     }
 }

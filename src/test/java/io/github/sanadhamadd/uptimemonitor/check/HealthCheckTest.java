@@ -87,6 +87,12 @@ class HealthCheckTest {
 
         assertFalse(result.isUp());
         assertNull(result.getStatusCode());
-        assertTrue(result.getMessage().startsWith("No response"));
+        assertEquals("No response: invalid URL", result.getMessage());
+    }
+
+    @Test
+    void checkLimitsRejectANegativeBodyLimitOrNoDeadline() {
+        assertThrows(IllegalArgumentException.class, () -> new CheckLimits(-1, java.time.Duration.ofSeconds(1)));
+        assertThrows(IllegalArgumentException.class, () -> new CheckLimits(1024, java.time.Duration.ZERO));
     }
 }

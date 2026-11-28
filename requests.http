@@ -8,6 +8,9 @@
 ###   ./mvnw spring-boot:run
 ### Send the requests from top to bottom: later ones use the monitor
 ### created by an earlier one.
+### spring-boot:run uses the dev profile, which lets checks call localhost.
+### If uptime.api-key is set, add the line "X-API-Key: <your key>" under
+### each request line.
 
 @host = http://localhost:8080
 
