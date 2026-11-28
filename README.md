@@ -4,7 +4,21 @@
 
 A Spring Boot application that monitors the availability of HTTP endpoints and serves the results through a REST API.
 
-> Work in progress. Monitors can be created, listed, updated, deleted and checked on demand through the REST API. Checking them automatically on a schedule is the next step.
+> Version 0.1.0. Monitors can be created, listed, updated, deleted and checked on demand through the REST API. Checking them automatically on a schedule is the next step.
+
+## The assignment
+
+This project was built for a Java course assignment: create a Spring Boot application with Maven that shows an understanding of how to serve an HTTP call and how to call it. The application needs to run, and its endpoints should be callable.
+
+| The assignment asks for | Where to find it |
+| ----------------------- | ---------------- |
+| A Spring Boot application with Maven | [`pom.xml`](pom.xml) and [`UptimeMonitorApplication`](src/main/java/io/github/sanadhamadd/uptimemonitor/UptimeMonitorApplication.java) |
+| Serving an HTTP call | Three controllers: [`HelloController`](src/main/java/io/github/sanadhamadd/uptimemonitor/hello/HelloController.java), [`MonitorController`](src/main/java/io/github/sanadhamadd/uptimemonitor/monitor/MonitorController.java) and [`CheckController`](src/main/java/io/github/sanadhamadd/uptimemonitor/check/CheckController.java) |
+| Calling an HTTP endpoint | From outside: the `curl` commands below and [`requests.http`](requests.http). From Java: [`HealthCheck`](src/main/java/io/github/sanadhamadd/uptimemonitor/check/HealthCheck.java) calls a URL with Spring's `RestClient` |
+| The application runs | One command, see [Run](#run) |
+| The endpoints are callable | See [How to call the endpoints](#how-to-call-the-endpoints) |
+
+The quickest way to see both halves at once: start the application and run `curl -X POST http://localhost:8080/api/monitors/1/check`. The application serves that call, and to answer it, it makes an HTTP call of its own to its `/hello` endpoint.
 
 ## Requirements
 
@@ -18,7 +32,25 @@ Maven is not required: the project includes the Maven Wrapper.
 ./mvnw spring-boot:run
 ```
 
-The application starts on `http://localhost:8080`.
+On Windows, use `mvnw.cmd spring-boot:run`.
+
+The application starts on `http://localhost:8080`. Stop it with `Ctrl+C`.
+
+If port 8080 is already in use, start it on another port and use that port in the commands below:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+```
+
+The application can also be packaged as a single jar file and run with Java alone:
+
+```bash
+./mvnw package
+```
+
+```bash
+java -jar target/api-uptime-monitor-0.1.0.jar
+```
 
 ## Endpoints
 
@@ -108,6 +140,36 @@ curl -X POST http://localhost:8080/api/monitors -H "Content-Type: application/js
 ```bash
 curl -X POST http://localhost:8080/api/monitors/999/check
 ```
+
+The same calls are in [`requests.http`](requests.http). IntelliJ IDEA Ultimate and the REST Client extension for VS Code can open that file and send each request with one click.
+
+## Project structure
+
+The code is in `src/main/java/io/github/sanadhamadd/uptimemonitor`, with one package per feature:
+
+| Package | What it holds |
+| ------- | ------------- |
+| `hello` | The `/hello` endpoint |
+| `monitor` | Monitors: the entity, its repository, service and controller, and the request and response records |
+| `check` | Health checks: the abstract `HealthCheck`, its two subclasses, the result, and the check endpoint |
+| `error` | Turning exceptions into HTTP error responses |
+
+A request passes through three layers: a controller receives the HTTP call, a service holds the logic, and a repository stores the data.
+
+## Java concepts used
+
+| Concept | Where |
+| ------- | ----- |
+| Encapsulation | `Monitor` has private fields and no setters; it can only change through `update`, which checks every value. `CheckResult` is immutable |
+| Packages | One package per feature, listed above |
+| Inheritance and abstract classes | `StatusCodeCheck` and `KeywordCheck` extend the abstract class `HealthCheck` and implement its abstract method `evaluate` |
+| Polymorphism | `CheckService` calls `run` on a `HealthCheck` without needing to know which subclass it is |
+| Interfaces | `MonitorRepository` is an interface that extends `JpaRepository`; `SampleMonitorLoader` implements `ApplicationRunner` |
+| Custom exceptions | `MonitorNotFoundException` and `InvalidMonitorException`, turned into `404` and `400` responses by `ApiExceptionHandler` |
+| Collections and generics | `List<Monitor>` in `MonitorService`, `Map<String, String>` in `ApiExceptionHandler`, `JpaRepository<Monitor, Long>` |
+| Lambda expressions | `orElseThrow(() -> ...)` in `MonitorService`, `map(MonitorResponse::from)` in `MonitorController` |
+| Spring Boot | `@RestController`, `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`, `@RequestParam`, `@PathVariable` and `@RequestBody` |
+| Maven | Dependencies and the build are defined in `pom.xml`; `./mvnw package` produces a runnable jar |
 
 ## Test
 
