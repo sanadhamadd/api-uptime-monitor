@@ -1,0 +1,62 @@
+### The same calls as in the README, for IntelliJ IDEA Ultimate or the
+### REST Client extension for VS Code. Start the application first:
+###   ./mvnw spring-boot:run
+### Send the requests from top to bottom: later ones use the monitor
+### created by an earlier one.
+
+@host = http://localhost:8080
+
+### Greeting
+GET {{host}}/hello?name=Sanad
+
+### List all monitors (contains the sample monitor, id 1)
+GET {{host}}/api/monitors
+
+### Check the sample monitor: the application calls its own /hello endpoint
+POST {{host}}/api/monitors/1/check
+
+### Create a monitor (it gets id 2)
+POST {{host}}/api/monitors
+Content-Type: application/json
+
+{
+  "name": "Missing page",
+  "url": "http://localhost:8080/no-such-page",
+  "intervalSeconds": 60
+}
+
+### Get the new monitor
+GET {{host}}/api/monitors/2
+
+### Check it: the page does not exist, so it is down with status 404
+POST {{host}}/api/monitors/2/check
+
+### Replace it with a monitor that expects a keyword
+PUT {{host}}/api/monitors/2
+Content-Type: application/json
+
+{
+  "name": "Wrong content",
+  "url": "http://localhost:8080/hello",
+  "intervalSeconds": 120,
+  "expectedKeyword": "Goodbye"
+}
+
+### Check it again: the page answers but lacks the keyword, so it is still down
+POST {{host}}/api/monitors/2/check
+
+### Delete it
+DELETE {{host}}/api/monitors/2
+
+### Invalid input: 400 with the reason for each field
+POST {{host}}/api/monitors
+Content-Type: application/json
+
+{
+  "name": "",
+  "url": "example.com",
+  "intervalSeconds": 1
+}
+
+### Unknown monitor: 404
+POST {{host}}/api/monitors/999/check

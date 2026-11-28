@@ -12,7 +12,7 @@
 
     <groupId>io.github.sanadhamadd</groupId>
     <artifactId>api-uptime-monitor</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>api-uptime-monitor</name>
     <description>Monitors the availability of HTTP endpoints and serves the results through a REST API</description>
 
