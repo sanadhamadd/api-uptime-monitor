@@ -12,8 +12,13 @@ import org.springframework.web.client.RestClient;
 /** A URL is up when it answers with a 2xx status code. */
 public class StatusCodeCheck extends HealthCheck {
 
+    /** Uses the default limits, see {@link CheckLimits#DEFAULT}. */
     public StatusCodeCheck(RestClient restClient) {
-        super(restClient);
+        this(restClient, CheckLimits.DEFAULT);
+    }
+
+    public StatusCodeCheck(RestClient restClient, CheckLimits limits) {
+        super(restClient, limits);
     }
 
     @Override

@@ -18,8 +18,14 @@ public class KeywordCheck extends HealthCheck {
 
     private final String keyword;
 
+    /** Uses the default limits, see {@link CheckLimits#DEFAULT}. */
     public KeywordCheck(RestClient restClient, String keyword) {
-        super(restClient);
+        this(restClient, CheckLimits.DEFAULT, keyword);
+    }
+
+    /** Only the first {@link CheckLimits#maxBodyBytes()} of the page are searched. */
+    public KeywordCheck(RestClient restClient, CheckLimits limits, String keyword) {
+        super(restClient, limits);
         if (keyword == null || keyword.isBlank()) {
             throw new IllegalArgumentException("The keyword must not be blank");
         }

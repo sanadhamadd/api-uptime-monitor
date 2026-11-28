@@ -28,9 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Starts the real application on a free port and checks monitors that point
  * back at it. The application both serves the HTTP call and makes it, so
- * these tests need no internet connection.
+ * these tests need no internet connection. Checking localhost on a random
+ * port needs uptime.allow-private-targets, as in the dev profile.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "uptime.allow-private-targets=true")
 class CheckEndpointTests {
 
     @LocalServerPort
@@ -101,7 +103,7 @@ class CheckEndpointTests {
 
         assertFalse(result.get("up").asBoolean());
         assertTrue(result.get("statusCode").isNull());
-        assertTrue(result.get("message").asText().startsWith("No response"));
+        assertEquals("No response: connection failed", result.get("message").asText());
     }
 
     @Test
