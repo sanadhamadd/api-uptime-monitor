@@ -7,26 +7,32 @@
 
 package io.github.sanadhamadd.uptimemonitor.monitor;
 
+import io.github.sanadhamadd.uptimemonitor.security.FakeHostResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(FakeHostResolver.Config.class)
 class MonitorControllerTests {
 
     private static final String VALID_BODY = """
@@ -232,6 +238,76 @@ class MonitorControllerTests {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("The monitor URL is not a valid web address"));
+
+        assertEquals(0, monitorRepository.count());
+    }
+
+    @Test
+    void createReturns400ForAUrlOnAPrivateNetwork() throws Exception {
+        assertCreateRejected("http://169.254.169.254/latest/meta-data/",
+                "The monitor URL points to a private or reserved address");
+        assertCreateRejected("http://localhost/",
+                "The monitor URL points to a private or reserved address");
+        assertCreateRejected("http://internal.example/",
+                "The monitor URL points to a private or reserved address");
+        assertCreateRejected("http://[::ffff:10.0.0.1]/",
+                "The monitor URL points to a private or reserved address");
+    }
+
+    @Test
+    void createReturns400ForAnIpAddressInAnUnusualFormat() throws Exception {
+        assertCreateRejected("http://2130706433/",
+                "The monitor URL must write an IP address as four decimal numbers");
+    }
+
+    @Test
+    void createReturns400ForAPortOtherThan80Or443() throws Exception {
+        assertCreateRejected("http://example.com:8080/", "The monitor URL must use port 80 or 443");
+    }
+
+    @Test
+    void createReturns400ForAUrlWithAPasswordAndDoesNotEchoIt() throws Exception {
+        String body = """
+                {"name": "Secret", "url": "https://user:hunter2@example.com/", "intervalSeconds": 60}
+                """;
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("The monitor URL must not contain a user name or password"))
+                .andExpect(content().string(not(containsString("hunter2"))));
+
+        assertEquals(0, monitorRepository.count());
+    }
+
+    @Test
+    void updateReturns400ForAUrlOnAPrivateNetworkAndKeepsTheOldUrl() throws Exception {
+        Monitor saved = monitorRepository.save(new Monitor("Example", "https://example.com", 60));
+        String body = """
+                {"name": "Example", "url": "http://10.0.0.1/", "intervalSeconds": 60}
+                """;
+
+        mockMvc.perform(put("/api/monitors/" + saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("The monitor URL points to a private or reserved address"));
+
+        assertEquals("https://example.com", monitorRepository.findById(saved.getId()).orElseThrow().getUrl());
+    }
+
+    private void assertCreateRejected(String url, String expectedDetail) throws Exception {
+        String body = """
+                {"name": "Rejected", "url": "%s", "intervalSeconds": 60}
+                """.formatted(url);
+
+        mockMvc.perform(post("/api/monitors")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value(expectedDetail));
 
         assertEquals(0, monitorRepository.count());
     }
