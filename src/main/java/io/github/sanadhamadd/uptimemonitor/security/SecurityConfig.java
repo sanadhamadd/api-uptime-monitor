@@ -6,11 +6,13 @@
  */
 package io.github.sanadhamadd.uptimemonitor.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.sanadhamadd.uptimemonitor.UptimeProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Creates the URL guard. */
+/** Creates the URL guard and puts the API key check in front of /api. */
 @Configuration
 public class SecurityConfig {
 
@@ -22,5 +24,15 @@ public class SecurityConfig {
     @Bean
     public UrlGuard urlGuard(HostResolver hostResolver, UptimeProperties properties) {
         return new UrlGuard(hostResolver, properties);
+    }
+
+    /** Only active when uptime.api-key is set; otherwise /api stays open, as before. */
+    @Bean
+    public FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(UptimeProperties properties, ObjectMapper objectMapper) {
+        FilterRegistrationBean<ApiKeyFilter> registration =
+                new FilterRegistrationBean<>(new ApiKeyFilter(properties.apiKey(), objectMapper));
+        registration.addUrlPatterns("/api/*");
+        registration.setEnabled(properties.hasApiKey());
+        return registration;
     }
 }
