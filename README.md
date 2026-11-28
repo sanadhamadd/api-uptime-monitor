@@ -187,4 +187,4 @@ Sanad Hamad
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Copyright (c) 2026 Sanad Hamad. All rights reserved. The code is published to be read and evaluated, not reused; see [LICENSE](LICENSE).
